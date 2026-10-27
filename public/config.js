@@ -1,9 +1,4 @@
 window.MODEL_HUB_CONFIG = {
-  storage: {
-    provider: "litterbox",
-    endpoint: "https://litterbox.catbox.moe/resources/internals/api.php",
-    retentionHours: 72
-  },
   metadata: {
     provider: "mantle",
     endpoint: "https://mantledb.sh/v2",
@@ -24,7 +19,5 @@ window.MODEL_HUB_CONFIG = {
         "model-commons-1ad31072a9d17fcd-code-2"
       ]
     }
-  },
-  maxFileMb: 250,
-  maxFiles: 12
+  }
 };
