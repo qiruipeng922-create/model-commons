@@ -7,38 +7,29 @@ const categoryLabels = {
 };
 
 const state = {
-  files: [],
-  uploading: false,
   activeCategory: "problem",
   categories: {
     problem: [],
     article: [],
     code: []
-  }
+  },
+  submitting: false
 };
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const elements = {
-  uploadForm: $("#uploadForm"),
-  fileInput: $("#fileInput"),
-  dropZone: $("#dropZone"),
-  browseButton: $("#browseButton"),
-  fileQueue: $("#fileQueue"),
-  fileList: $("#fileList"),
-  queueSummary: $("#queueSummary"),
-  clearQueueButton: $("#clearQueueButton"),
+  linkForm: $("#linkForm"),
+  resourceTitle: $("#resourceTitle"),
+  resourceUrl: $("#resourceUrl"),
   uploaderName: $("#uploaderName"),
   submissionNote: $("#submissionNote"),
-  completionText: $("#completionText"),
-  completionBar: $("#completionBar"),
   submitButton: $("#submitButton"),
-  uploadError: $("#uploadError"),
+  linkError: $("#linkError"),
   libraryGrid: $("#libraryGrid"),
   librarySummary: $("#librarySummary"),
   refreshRecords: $("#refreshRecords"),
-  maxFileSize: $("#maxFileSize"),
   toast: $("#toast"),
   toastTitle: $("#toastTitle"),
   toastText: $("#toastText")
@@ -53,27 +44,30 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function extensionOf(name) {
-  const parts = String(name).split(".");
-  return parts.length > 1 ? parts.pop().toLowerCase() : "";
-}
-
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / 1024 ** index;
-  return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
-}
-
 function formatDate(value) {
   return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
   }).format(new Date(value));
+}
+
+function encodeMetadata(value) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function decodeMetadata(value) {
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 function showToast(title, text, type = "success") {
@@ -107,334 +101,57 @@ function selectCategory(category, shouldScroll = false) {
   }
 }
 
-function queueCategory() {
-  return selectedCategory();
+function normalizeUrl(rawValue) {
+  const value = String(rawValue || "").trim();
+  const withProtocol = /^[a-z][a-z\d+.-]*:/i.test(value) ? value : `https://${value}`;
+  const url = new URL(withProtocol);
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("链接必须以 http:// 或 https:// 开头。");
+  }
+  const hostname = url.hostname.toLowerCase();
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".local") ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    /^10\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+  ) {
+    throw new Error("请输入公网访问地址，不能使用本机或局域网地址。");
+  }
+  return url.href;
 }
 
-function safeFilePart(value, maxLength = 34) {
+function cleanText(value, maxLength) {
   return String(value || "")
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
-    .replace(/\s+/g, " ")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
     .trim()
     .slice(0, maxLength);
 }
 
-function encodeMetadata(value) {
-  const bytes = new TextEncoder().encode(JSON.stringify(value));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+function shuffled(items) {
+  return [...items].sort(() => Math.random() - 0.5);
 }
 
-function decodeMetadata(value) {
-  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  const binary = atob(padded);
-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  return JSON.parse(new TextDecoder().decode(bytes));
-}
+async function writeLink(category, metadata) {
+  const namespaces = shuffled(config.metadata.namespaces[category]);
+  const path = `links/${Date.now()}-${metadata.id}.${encodeMetadata(metadata)}`;
+  let lastError = null;
 
-function validFile(file) {
-  const extension = extensionOf(file.name);
-  const blocked = new Set([
-    "exe", "dmg", "pkg", "app", "msi", "bat", "cmd", "com", "scr", "vbs",
-    "jar", "apk", "bin", "iso"
-  ]);
-  if (!extension) return "文件需要带有扩展名";
-  if (blocked.has(extension)) return "出于安全考虑，不支持该文件类型";
-  if (file.size > config.maxFileMb * 1024 * 1024) {
-    return `文件超过 ${config.maxFileMb} MB 限制`;
-  }
-  return "";
-}
-
-function addFiles(fileList) {
-  elements.uploadError.textContent = "";
-  const rejected = [];
-
-  for (const file of [...fileList]) {
-    if (state.files.length >= config.maxFiles) {
-      rejected.push(`一次最多上传 ${config.maxFiles} 个文件`);
-      break;
-    }
-
-    const duplicate = state.files.some(
-      (item) =>
-        item.file.name === file.name &&
-        item.file.size === file.size &&
-        item.file.lastModified === file.lastModified
-    );
-    if (duplicate) continue;
-
-    const problem = validFile(file);
-    if (problem) {
-      rejected.push(`${file.name}：${problem}`);
-      continue;
-    }
-
-    state.files.push({
-      id: crypto.randomUUID(),
-      file,
-      status: "queued",
-      progress: 0
+  for (const namespace of namespaces) {
+    const response = await fetch(`${config.metadata.endpoint}/${namespace}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
     });
+    if (response.ok) return;
+    lastError = response.status;
+    if (response.status !== 413) break;
   }
 
-  if (rejected.length) {
-    elements.uploadError.textContent = rejected.join("；");
-    showToast("部分文件未加入", rejected[0], "error");
-  }
-  elements.fileInput.value = "";
-  renderQueue();
+  throw new Error(`链接索引写入失败（${lastError || "网络错误"}），请稍后重试。`);
 }
-
-function renderQueue() {
-  const category = queueCategory();
-  elements.fileQueue.hidden = state.files.length === 0;
-  elements.fileList.innerHTML = state.files
-    .map((item) => {
-      const extension = extensionOf(item.file.name);
-      const stateLabel =
-        item.status === "uploading"
-          ? `${Math.round(item.progress)}%`
-          : item.status === "success"
-            ? "已上传"
-            : item.status === "error"
-              ? "失败"
-              : "";
-      return `
-        <div class="file-row" data-file-id="${item.id}" data-category="${category}">
-          <span class="file-type">${escapeHtml(extension || "file")}</span>
-          <div class="file-name">
-            <strong title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</strong>
-            <small>${formatBytes(item.file.size)}</small>
-          </div>
-          <span class="category-pill">${categoryLabels[category]}</span>
-          ${
-            item.status === "queued"
-              ? `<button class="file-action remove-file" type="button" aria-label="移除 ${escapeHtml(item.file.name)}">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
-                </button>`
-              : `<span class="file-state ${item.status}">${stateLabel}</span>`
-          }
-          ${
-            item.status === "uploading"
-              ? `<div class="file-progress"><b style="width:${item.progress}%"></b></div>`
-              : ""
-          }
-          ${
-            item.status === "error"
-              ? `<div class="file-progress"><b style="width:100%;background:var(--danger)"></b></div>`
-              : ""
-          }
-        </div>
-      `;
-    })
-    .join("");
-
-  const totalSize = state.files.reduce((sum, item) => sum + item.file.size, 0);
-  elements.queueSummary.textContent = `${state.files.length} 个文件 · ${formatBytes(totalSize)} · 将上传至${categoryLabels[category]}`;
-  elements.completionText.textContent = `${state.files.length} / ${config.maxFiles}`;
-  elements.completionBar.style.width = `${Math.min(100, (state.files.length / config.maxFiles) * 100)}%`;
-  elements.submitButton.disabled = state.files.length === 0 || state.uploading;
-  elements.clearQueueButton.disabled = state.uploading;
-  elements.submitButton.querySelector("span").textContent = state.uploading ? "正在上传" : "开始上传";
-}
-
-elements.fileList.addEventListener("click", (event) => {
-  const removeButton = event.target.closest(".remove-file");
-  if (!removeButton || state.uploading) return;
-  const row = removeButton.closest(".file-row");
-  state.files = state.files.filter((item) => item.id !== row.dataset.fileId);
-  renderQueue();
-});
-
-elements.clearQueueButton.addEventListener("click", () => {
-  if (state.uploading) return;
-  state.files = [];
-  elements.uploadError.textContent = "";
-  renderQueue();
-});
-
-elements.fileInput.addEventListener("change", () => addFiles(elements.fileInput.files));
-elements.browseButton.addEventListener("click", (event) => {
-  event.stopPropagation();
-  elements.fileInput.click();
-});
-elements.dropZone.addEventListener("click", (event) => {
-  if (!event.target.closest("button") && !state.uploading) elements.fileInput.click();
-});
-elements.dropZone.addEventListener("keydown", (event) => {
-  if ((event.key === "Enter" || event.key === " ") && !state.uploading) {
-    event.preventDefault();
-    elements.fileInput.click();
-  }
-});
-
-["dragenter", "dragover"].forEach((eventName) => {
-  elements.dropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    if (!state.uploading) elements.dropZone.classList.add("is-dragging");
-  });
-});
-
-["dragleave", "drop"].forEach((eventName) => {
-  elements.dropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    elements.dropZone.classList.remove("is-dragging");
-  });
-});
-
-elements.dropZone.addEventListener("drop", (event) => {
-  if (!state.uploading && event.dataTransfer?.files?.length) {
-    addFiles(event.dataTransfer.files);
-  }
-});
-
-$$('input[name="category"]').forEach((input) => {
-  input.addEventListener("change", renderQueue);
-});
-
-async function writeMetadata(category, metadata) {
-  const namespaces = config.metadata.namespaces[category];
-  const namespace = namespaces[Math.floor(Math.random() * namespaces.length)];
-  const path = `files/${Date.now()}-${metadata.id}.${encodeMetadata(metadata)}`;
-  const response = await fetch(`${config.metadata.endpoint}/${namespace}/${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ok: true })
-  });
-  if (!response.ok) throw new Error(`云端索引写入失败（${response.status}）`);
-}
-
-function uploadFile(item, category) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append("reqtype", "fileupload");
-    formData.append("time", `${config.storage.retentionHours}h`);
-    formData.append("fileToUpload", item.file, item.file.name);
-    xhr.open("POST", config.storage.endpoint);
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        item.progress = (event.loaded / event.total) * 100;
-        item.status = "uploading";
-        renderQueue();
-      }
-    });
-    xhr.addEventListener("load", async () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const url = xhr.responseText.trim();
-        if (!url.startsWith("https://litter.catbox.moe/")) {
-          item.status = "error";
-          renderQueue();
-          reject(new Error("云端文件地址无效，请重试。"));
-          return;
-        }
-        try {
-          await writeMetadata(category, {
-            id: item.id,
-            name: item.file.name,
-            size: item.file.size,
-            uploader: safeFilePart(elements.uploaderName.value || "匿名用户", 30),
-            note: safeFilePart(elements.submissionNote.value, 120),
-            url,
-            uploadedAt: new Date().toISOString(),
-            category
-          });
-          item.progress = 100;
-          item.status = "success";
-          renderQueue();
-          resolve();
-        } catch (error) {
-          item.status = "error";
-          renderQueue();
-          reject(error);
-        }
-      } else {
-        item.status = "error";
-        renderQueue();
-        reject(new Error(`云端返回 ${xhr.status}，请稍后重试。`));
-      }
-    });
-    xhr.addEventListener("error", () => {
-      item.status = "error";
-      renderQueue();
-      reject(new Error("无法连接云端文件服务，请稍后重试。"));
-    });
-    xhr.addEventListener("abort", () => {
-      item.status = "error";
-      renderQueue();
-      reject(new Error("上传已取消。"));
-    });
-    item.status = "uploading";
-    item.progress = 0;
-    renderQueue();
-    xhr.send(formData);
-  });
-}
-
-async function uploadInBatches(category) {
-  let cursor = 0;
-  const failures = [];
-  const concurrency = 2;
-
-  async function worker() {
-    while (cursor < state.files.length) {
-      const index = cursor++;
-      try {
-        await uploadFile(state.files[index], category);
-      } catch (error) {
-        failures.push({ item: state.files[index], error });
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: concurrency }, () => worker()));
-  return failures;
-}
-
-elements.uploadForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!state.files.length || state.uploading) return;
-
-  const category = selectedCategory();
-  state.uploading = true;
-  elements.uploadError.textContent = "";
-  if (elements.uploaderName.value.trim()) {
-    localStorage.setItem("model-commons:uploader", elements.uploaderName.value.trim());
-  }
-  renderQueue();
-
-  try {
-    const failures = await uploadInBatches(category);
-    await loadAllCategories();
-    selectCategory(category);
-
-    if (failures.length === 0) {
-      showToast(
-        "上传完成",
-        `${state.files.length} 个文件已加入${categoryLabels[category]}分区。`
-      );
-      state.files = [];
-      elements.submissionNote.value = "";
-    } else {
-      showToast(
-        "部分文件未完成",
-        `${failures.length} 个文件上传失败，可重新提交。`,
-        "error"
-      );
-      elements.uploadError.textContent = failures.map((entry) => entry.error.message).join("；");
-      state.files = state.files.filter((item) => item.status !== "success");
-    }
-  } catch (error) {
-    elements.uploadError.textContent = error.message;
-    showToast("上传异常", error.message, "error");
-  } finally {
-    state.uploading = false;
-    renderQueue();
-  }
-});
 
 async function fetchCategory(category) {
   const namespaces = config.metadata.namespaces[category];
@@ -452,27 +169,26 @@ async function fetchCategory(category) {
     })
   );
 
-  const freshAfter = Date.now() - config.storage.retentionHours * 60 * 60 * 1000;
   return responses
     .flat()
     .flatMap((entry) => {
-      if (!entry.path?.startsWith("files/")) return [];
+      if (!entry.path?.startsWith("links/")) return [];
       const encoded = entry.path.split(".").at(-1);
       try {
         const metadata = decodeMetadata(encoded);
         if (
           metadata.category !== category ||
-          !String(metadata.url || "").startsWith("https://litter.catbox.moe/") ||
-          new Date(metadata.uploadedAt).getTime() < freshAfter
+          !metadata.url ||
+          !["http:", "https:"].includes(new URL(metadata.url).protocol)
         ) {
           return [];
         }
-        return [{ ...metadata, downloadUrl: metadata.url }];
+        return [{ ...metadata, host: new URL(metadata.url).hostname.replace(/^www\./, "") }];
       } catch {
         return [];
       }
     })
-    .sort((left, right) => right.uploadedAt.localeCompare(left.uploadedAt));
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 async function loadAllCategories(showFeedback = false) {
@@ -487,7 +203,7 @@ async function loadAllCategories(showFeedback = false) {
     state.categories = { problem, article, code };
     renderCounts();
     renderLibrary();
-    if (showFeedback) showToast("资料库已更新", "三个分区的内容均已重新读取。");
+    if (showFeedback) showToast("资料库已更新", "三个分区的链接均已重新读取。");
   } catch (error) {
     elements.librarySummary.textContent = "资料库暂时无法读取";
     elements.libraryGrid.innerHTML = `
@@ -514,47 +230,110 @@ function renderCounts() {
 
 function renderLibrary() {
   const category = state.activeCategory;
-  const files = state.categories[category];
+  const links = state.categories[category];
   elements.librarySummary.textContent =
-    `${categoryLabels[category]}分区 · ${files.length} 个文件 · 所有人可见`;
+    `${categoryLabels[category]}分区 · ${links.length} 个资源 · 所有人可见`;
 
-  if (!files.length) {
+  if (!links.length) {
     elements.libraryGrid.innerHTML = `
       <div class="library-empty">
         <span>∅</span>
-        <p>${categoryLabels[category]}分区还没有文件</p>
-        <small>上传后，所有访问者都能在这里看到</small>
+        <p>${categoryLabels[category]}分区还没有资源</p>
+        <small>发布链接后，所有访问者都能在这里看到</small>
       </div>
     `;
     return;
   }
 
-  elements.libraryGrid.innerHTML = files
-    .map((file) => {
-      const extension = extensionOf(file.name);
-      return `
-        <article class="library-file" data-category="${category}">
-          <div class="library-file-top">
-            <span class="file-type">${escapeHtml(extension || "file")}</span>
-            <span class="library-date">${formatDate(file.uploadedAt)}</span>
-          </div>
-          <h3 title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</h3>
-          <p>${escapeHtml(file.note || "未填写文件说明")}</p>
-          <div class="library-file-meta">
-            <span>${escapeHtml(file.uploader)}</span>
-            <span>${formatBytes(file.size)}</span>
-          </div>
-          <a href="${file.downloadUrl}" target="_blank" rel="noopener">
-            查看并下载
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14"/>
-            </svg>
-          </a>
-        </article>
-      `;
-    })
+  elements.libraryGrid.innerHTML = links
+    .map((link) => `
+      <article class="library-file resource-card" data-category="${category}">
+        <div class="library-file-top">
+          <span class="resource-domain">${escapeHtml(link.host.slice(0, 20))}</span>
+          <span class="library-date">${formatDate(link.createdAt)}</span>
+        </div>
+        <h3 title="${escapeHtml(link.title)}">${escapeHtml(link.title)}</h3>
+        <p>${escapeHtml(link.note || "未填写资源说明")}</p>
+        <div class="library-file-meta">
+          <span>${escapeHtml(link.uploader || "匿名用户")}</span>
+          <span>${escapeHtml(link.host)}</span>
+        </div>
+        <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">
+          打开外部资源
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14 5h5v5M19 5l-8 8"/>
+            <path d="M18 14v5H5V6h5"/>
+          </svg>
+        </a>
+      </article>
+    `)
     .join("");
 }
+
+elements.linkForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.submitting) return;
+
+  elements.linkError.textContent = "";
+  const category = selectedCategory();
+  const title = cleanText(elements.resourceTitle.value, 100);
+  const note = cleanText(elements.submissionNote.value, 120);
+  const uploader = cleanText(elements.uploaderName.value || "匿名用户", 30);
+  let url;
+
+  try {
+    url = normalizeUrl(elements.resourceUrl.value);
+  } catch (error) {
+    elements.linkError.textContent = error.message;
+    elements.resourceUrl.focus();
+    return;
+  }
+
+  if (title.length < 2) {
+    elements.linkError.textContent = "资源标题至少需要 2 个字符。";
+    elements.resourceTitle.focus();
+    return;
+  }
+
+  const duplicate = state.categories[category].some((link) => link.url === url);
+  if (duplicate) {
+    elements.linkError.textContent = `这个链接已经存在于${categoryLabels[category]}分区。`;
+    return;
+  }
+
+  state.submitting = true;
+  elements.submitButton.disabled = true;
+  elements.submitButton.querySelector("span").textContent = "正在发布";
+
+  try {
+    const metadata = {
+      id: crypto.randomUUID(),
+      title,
+      url,
+      note,
+      uploader,
+      category,
+      createdAt: new Date().toISOString()
+    };
+    await writeLink(category, metadata);
+    if (uploader !== "匿名用户") {
+      localStorage.setItem("model-commons:uploader", uploader);
+    }
+    elements.resourceTitle.value = "";
+    elements.resourceUrl.value = "";
+    elements.submissionNote.value = "";
+    await loadAllCategories();
+    selectCategory(category, true);
+    showToast("发布成功", `链接已加入${categoryLabels[category]}分区。`);
+  } catch (error) {
+    elements.linkError.textContent = error.message;
+    showToast("发布失败", error.message, "error");
+  } finally {
+    state.submitting = false;
+    elements.submitButton.disabled = false;
+    elements.submitButton.querySelector("span").textContent = "发布到资料库";
+  }
+});
 
 $$(".library-tabs [data-category]").forEach((button) => {
   button.addEventListener("click", () => selectCategory(button.dataset.category));
@@ -567,9 +346,7 @@ $$('[data-nav-category]').forEach((link) => {
 elements.refreshRecords.addEventListener("click", () => loadAllCategories(true));
 
 function initialize() {
-  elements.maxFileSize.textContent = `${config.maxFileMb} MB`;
   elements.uploaderName.value = localStorage.getItem("model-commons:uploader") || "";
-  renderQueue();
   loadAllCategories();
 }
 
