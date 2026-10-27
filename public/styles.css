@@ -1044,6 +1044,72 @@ svg {
   color: rgba(255, 255, 255, 0.22);
 }
 
+.zero-cost-badge {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid rgba(36, 113, 88, 0.22);
+  border-radius: 14px;
+  background: rgba(190, 216, 203, 0.25);
+  color: var(--success);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.link-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.78fr) minmax(280px, 1.22fr);
+  gap: 14px;
+}
+
+.url-input-wrap {
+  position: relative;
+}
+
+.url-input-wrap svg {
+  position: absolute;
+  left: 14px;
+  top: 15px;
+  width: 17px;
+  height: 17px;
+  color: var(--blue);
+}
+
+.url-input-wrap input {
+  padding-left: 42px;
+}
+
+.link-notice {
+  min-height: 63px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 15px;
+  border: 1px solid rgba(23, 107, 135, 0.15);
+  border-radius: 8px;
+  background: rgba(233, 242, 237, 0.56);
+}
+
+.link-notice svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: var(--success);
+}
+
+.link-notice p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.link-notice strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .field.compact {
   gap: 7px;
   margin: 0;
@@ -1568,6 +1634,32 @@ svg {
 .library-file .file-type {
   width: 34px;
   height: 34px;
+}
+
+.resource-card::after {
+  content: "↗";
+  position: absolute;
+  right: 17px;
+  top: 59px;
+  color: rgba(23, 107, 135, 0.13);
+  font-family: "Times New Roman", serif;
+  font-size: 32px;
+}
+
+.resource-domain {
+  max-width: calc(100% - 80px);
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 5px;
+  background: rgba(23, 107, 135, 0.08);
+  color: var(--blue);
+  font-family: var(--mono);
+  font-size: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-date {
@@ -2331,6 +2423,10 @@ svg {
   }
 
   .meta-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .link-fields {
     grid-template-columns: 1fr;
   }
 
