@@ -317,7 +317,7 @@ elements.linkForm.addEventListener("submit", async (event) => {
     };
     await writeLink(category, metadata);
     if (uploader !== "匿名用户") {
-      localStorage.setItem("model-commons:uploader", uploader);
+      localStorage.setItem("ymenmcm:uploader", uploader);
     }
     elements.resourceTitle.value = "";
     elements.resourceUrl.value = "";
@@ -346,7 +346,10 @@ $$('[data-nav-category]').forEach((link) => {
 elements.refreshRecords.addEventListener("click", () => loadAllCategories(true));
 
 function initialize() {
-  elements.uploaderName.value = localStorage.getItem("model-commons:uploader") || "";
+  elements.uploaderName.value =
+    localStorage.getItem("ymenmcm:uploader") ||
+    localStorage.getItem("model-commons:uploader") ||
+    "";
   loadAllCategories();
 }
 
