@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <meta
+      name="description"
+      content="面向约百人使用的公开文件共享平台，题目、文章和代码集中归档、自由下载。"
+    />
+    <title>建模共享台 · 题目 / 文章 / 代码</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./config.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="paper-noise" aria-hidden="true"></div>
+
+    <div class="app-view" id="appView">
+      <header class="site-header">
+        <a class="brand" href="#top" aria-label="建模共享台首页">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+          <span>
+            <b>建模共享台</b>
+            <small>MODEL COMMONS</small>
+          </span>
+        </a>
+
+        <nav class="main-nav" aria-label="主导航">
+          <a class="active" href="#uploadDesk">上传文件</a>
+          <a href="#library" data-nav-category="problem">题目</a>
+          <a href="#library" data-nav-category="article">文章</a>
+          <a href="#library" data-nav-category="code">代码</a>
+        </nav>
+
+        <div class="header-actions">
+          <span class="session-status public-status">
+            <i></i>
+            <span>公开共享</span>
+          </span>
+          <a class="direct-link" href="#uploadDesk">
+            立即上传
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </a>
+        </div>
+      </header>
+
+      <div class="page-grid" id="top">
+        <div class="main-column">
+          <section class="intro-block" aria-labelledby="pageTitle">
+            <div>
+              <p class="eyebrow"><span></span> 公共文件空间 / 约 100 人</p>
+              <h1 id="pageTitle">题目、文章与代码，<br />每个人都能共享。</h1>
+            </div>
+            <p class="intro-copy">
+              无需注册，打开即可上传和下载。三个公开分区集中整理，
+              任何人都能访问其他成员分享的资料。
+            </p>
+            <div class="math-orbit" aria-hidden="true">
+              <span class="orbit orbit-one"></span>
+              <span class="orbit orbit-two"></span>
+              <span class="orbit orbit-three"></span>
+              <b>∑</b>
+              <small>01</small>
+              <i>∞</i>
+            </div>
+          </section>
+
+          <section class="submit-card" id="uploadDesk" aria-labelledby="uploadTitle">
+            <div class="card-heading">
+              <div>
+                <span class="step-kicker">PUBLIC UPLOAD</span>
+                <h2 id="uploadTitle">上传到公共资料库</h2>
+              </div>
+              <div class="completion-meter" title="已选择文件数">
+                <span id="completionText">0 / 12</span>
+                <i><b id="completionBar"></b></i>
+              </div>
+            </div>
+
+            <form id="uploadForm">
+              <fieldset class="category-picker">
+                <legend>选择所属分区</legend>
+                <label>
+                  <input type="radio" name="category" value="problem" checked />
+                  <span>
+                    <b>题目</b>
+                    <small>赛题文件、任务说明、原始要求</small>
+                    <i>01</i>
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="category" value="article" />
+                  <span>
+                    <b>文章</b>
+                    <small>论文、报告、说明文档</small>
+                    <i>02</i>
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="category" value="code" />
+                  <span>
+                    <b>代码</b>
+                    <small>源码、压缩包、运行脚本</small>
+                    <i>03</i>
+                  </span>
+                </label>
+              </fieldset>
+
+              <fieldset class="meta-fields">
+                <legend class="sr-only">上传信息</legend>
+                <label class="field compact">
+                  <span>上传者 <em>选填</em></span>
+                  <input
+                    id="uploaderName"
+                    name="uploaderName"
+                    type="text"
+                    maxlength="30"
+                    autocomplete="name"
+                    placeholder="例如：李同学"
+                  />
+                </label>
+                <label class="field compact">
+                  <span>文件说明 <em>选填</em></span>
+                  <input
+                    id="submissionNote"
+                    name="submissionNote"
+                    type="text"
+                    maxlength="120"
+                    placeholder="例如：A 题完整代码"
+                  />
+                </label>
+              </fieldset>
+
+              <div
+                class="drop-zone"
+                id="dropZone"
+                role="button"
+                tabindex="0"
+                aria-controls="fileInput"
+                aria-label="选择或拖入任意资料文件"
+              >
+                <input
+                  id="fileInput"
+                  name="files"
+                  type="file"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  multiple
+                  accept=".pdf,.doc,.docx,.tex,.bib,.zip,.rar,.7z,.tar,.gz,.py,.ipynb,.r,.rmd,.jl,.m,.do,.sas,.c,.h,.cpp,.hpp,.java,.js,.ts,.sh,.ps1,.sql,.txt,.md,.csv,.tsv,.json,.yaml,.yml,.xml,.xls,.xlsx,.xlsm,.ods,.mat,.sav,.dta,.png,.jpg,.jpeg,.gif,.webp,.svg,.bmp,.tif,.tiff,.ppt,.pptx,.key,.mp4,.mov,.mp3,.wav"
+                />
+                <div class="upload-glyph" aria-hidden="true">
+                  <span></span>
+                  <svg viewBox="0 0 32 32">
+                    <path d="M16 22V7m0 0-5 5m5-5 5 5M8 19v6h16v-6" />
+                  </svg>
+                </div>
+                <div class="drop-copy">
+                  <strong>拖入文件，或点击选择</strong>
+                  <span>支持批量上传；文件将进入上方选中的分区</span>
+                </div>
+                <button class="browse-button" type="button" id="browseButton">选择文件</button>
+              </div>
+
+              <div class="format-strip" aria-label="支持的文件类型">
+                <span>题目</span>
+                <b>PDF · DOCX · 图片</b>
+                <i></i>
+                <span>文章</span>
+                <b>PDF · DOCX · TEX</b>
+                <i></i>
+                <span>代码</span>
+                <b>ZIP · PY · IPYNB · R</b>
+              </div>
+
+              <div class="file-queue" id="fileQueue" hidden>
+                <div class="queue-heading">
+                  <div>
+                    <h3>待上传文件</h3>
+                    <p id="queueSummary">0 个文件</p>
+                  </div>
+                  <button class="text-button" id="clearQueueButton" type="button">清空</button>
+                </div>
+                <div class="file-list" id="fileList"></div>
+              </div>
+
+              <p class="form-error upload-error" id="uploadError" role="alert"></p>
+
+              <div class="submit-row">
+                <p>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3 5 6v5c0 4.7 2.8 8.2 7 10 4.2-1.8 7-5.3 7-10V6l-7-3Z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                  上传后对所有访客公开，请勿提交敏感资料
+                </p>
+                <button class="primary-button" id="submitButton" type="submit" disabled>
+                  <span>开始上传</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section class="library-section" id="library" aria-labelledby="libraryTitle">
+            <div class="library-heading">
+              <div>
+                <span class="step-kicker">PUBLIC LIBRARY</span>
+                <h2 id="libraryTitle">公共资料库</h2>
+              </div>
+              <p>所有访客均可浏览和下载</p>
+            </div>
+
+            <div class="library-tabs" role="tablist" aria-label="资料分区">
+              <button class="active" type="button" role="tab" aria-selected="true" data-category="problem">
+                <span>01</span>
+                <b>题目</b>
+                <em id="problemCount">0</em>
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-category="article">
+                <span>02</span>
+                <b>文章</b>
+                <em id="articleCount">0</em>
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-category="code">
+                <span>03</span>
+                <b>代码</b>
+                <em id="codeCount">0</em>
+              </button>
+            </div>
+
+            <div class="library-toolbar">
+              <p id="librarySummary">正在读取题目分区...</p>
+              <button id="refreshRecords" class="refresh-button" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 7v5h-5M4 17v-5h5" />
+                  <path d="M18.3 9A7 7 0 0 0 6 7l-2 3m1.7 5A7 7 0 0 0 18 17l2-3" />
+                </svg>
+                刷新
+              </button>
+            </div>
+            <div class="library-grid" id="libraryGrid" role="tabpanel">
+              <div class="library-empty">
+                <span>∅</span>
+                <p>正在读取公共资料...</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="process-section" id="guidelines" aria-labelledby="processTitle">
+            <div class="section-title-row">
+              <div>
+                <span class="step-kicker">使用方式</span>
+                <h2 id="processTitle">三区归档，公开共享</h2>
+              </div>
+              <p>每个人都能访问其他人上传的内容。</p>
+            </div>
+            <div class="process-grid">
+              <article>
+                <span class="process-number">01</span>
+                <div class="process-icon">
+                  <svg viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M7 5h13l5 5v17H7V5Z" />
+                    <path d="M20 5v5h5M11 15h10M11 20h10" />
+                  </svg>
+                </div>
+                <h3>选择分区</h3>
+                <p>按资料性质选择题目、文章或代码，避免所有内容混在一起。</p>
+              </article>
+              <article>
+                <span class="process-number">02</span>
+                <div class="process-icon">
+                  <svg viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 26V8m0 0-6 6m6-6 6 6M6 27h20" />
+                  </svg>
+                </div>
+                <h3>公开上传</h3>
+                <p>无需账号，可批量选择文件并查看实时上传进度。</p>
+              </article>
+              <article>
+                <span class="process-number">03</span>
+                <div class="process-icon">
+                  <svg viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M6 16h20M18 8l8 8-8 8" />
+                  </svg>
+                </div>
+                <h3>自由取用</h3>
+                <p>文件完成后出现在对应分区，任何访客都能查看和下载。</p>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <aside class="side-column">
+          <section class="category-index" aria-labelledby="categoryIndexTitle">
+            <span class="step-kicker">SECTIONS</span>
+            <h2 id="categoryIndexTitle">内容分区</h2>
+            <a href="#library" data-nav-category="problem">
+              <i>01</i>
+              <span><b>题目</b><small>赛题与任务材料</small></span>
+              <em id="problemSideCount">0</em>
+            </a>
+            <a href="#library" data-nav-category="article">
+              <i>02</i>
+              <span><b>文章</b><small>论文与说明文档</small></span>
+              <em id="articleSideCount">0</em>
+            </a>
+            <a href="#library" data-nav-category="code">
+              <i>03</i>
+              <span><b>代码</b><small>源码与运行材料</small></span>
+              <em id="codeSideCount">0</em>
+            </a>
+          </section>
+
+          <section class="limits-card" aria-labelledby="limitsTitle">
+            <div class="limits-art" aria-hidden="true">
+              <span>π</span>
+              <i></i>
+              <b>∞</b>
+            </div>
+            <span class="step-kicker">文件规范</span>
+            <h2 id="limitsTitle">上传限制</h2>
+            <ul>
+              <li><span>单文件大小</span><b id="maxFileSize">250 MB</b></li>
+              <li><span>单次文件数</span><b>12 个</b></li>
+              <li><span>访问方式</span><b>公开上传</b></li>
+            </ul>
+            <p>当前使用云端临时文件空间，文件保留约 72 小时。长期存储将在后续接入。</p>
+          </section>
+
+          <section class="cloud-card">
+            <span class="cloud-dot"></span>
+            <div>
+              <span>云端文件服务</span>
+              <p>网站不依赖上传者的电脑，关闭页面后仍可访问。</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <footer class="site-footer">
+        <div class="brand footer-brand">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+          <span>
+            <b>建模共享台</b>
+            <small>MODEL COMMONS</small>
+          </span>
+        </div>
+        <p>题目、文章、代码，让每个人都能看见彼此的工作。</p>
+        <span>公开文件共享系统 · 约 100 人 · 2026</span>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" aria-hidden="true">
+      <span class="toast-icon"></span>
+      <div>
+        <strong id="toastTitle">上传完成</strong>
+        <p id="toastText">文件已加入公共资料库。</p>
+      </div>
+    </div>
+  </body>
+</html>
